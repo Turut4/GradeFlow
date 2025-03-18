@@ -3,12 +3,14 @@ package store
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 )
 
 var (
-	ErrNotFound = errors.New("record not found")
+	ErrNotFound          = errors.New("record not found")
+	QueryTimeoutDuration = 5 * time.Second
 )
 
 type Storage struct {

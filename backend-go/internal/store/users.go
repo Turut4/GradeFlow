@@ -59,6 +59,9 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	}
 	user.Password = hashedPassword
 
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	var role Role
 	if err := s.db.WithContext(ctx).Where("name = ?", user.Role.Name).First(&role).Error; err != nil {
 		return fmt.Errorf("role not found: %w", err)
@@ -70,6 +73,9 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
 	var user User
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
 
 	if err := s.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
 		switch err {

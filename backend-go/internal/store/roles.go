@@ -20,6 +20,9 @@ type RoleStore struct {
 func (s *RoleStore) GetByName(ctx context.Context, name string) (*Role, error) {
 	var role Role
 
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	tx := s.db.WithContext(ctx).Where("name = ?", name).First(&role)
 
 	if tx.Error != nil {
