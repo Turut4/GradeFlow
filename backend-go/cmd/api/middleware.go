@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Turut4/GradeFlow/internal/store"
@@ -31,11 +30,12 @@ func (api *application) authTokenMiddleware(c *fiber.Ctx) error {
 	}
 
 	claims, _ := token.Claims.(jwt.MapClaims)
-	userID, err := strconv.ParseInt(fmt.Sprintf("%.f", claims["sub"]), 10, 64)
-	if err != nil {
-		return api.unauthorizedResponse(c, err)
+	sub, ok := claims["sub"].(float64)
+	if !ok {
+		return api.unauthorizedResponse(c, fmt.Errorf("invalid 'sub' claim type: expected float64, got %T", claims["sub"]))
 	}
 
+	userID := int64(sub)
 	user, err := api.store.Users.GetByID(c.UserContext(), userID)
 	if err != nil {
 		return api.unauthorizedResponse(c, err)

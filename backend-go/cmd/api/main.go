@@ -28,6 +28,9 @@ func main() {
 				iss:    "gradeflow",
 			},
 		},
+		ocr: ocrConfig{
+			addr: env.GetString("OCR_ADDR", "http://localhost:8000/process-image"),
+		},
 	}
 
 	logger := zap.Must(zap.NewProduction()).Sugar()
