@@ -6,6 +6,7 @@ require (
 	github.com/go-playground/validator/v10 v10.25.0
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/jung-kurt/gofpdf v1.16.2
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.32.0
 	gorm.io/driver/postgres v1.5.11

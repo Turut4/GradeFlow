@@ -25,7 +25,7 @@ func (api *application) notFoundResponse(c *fiber.Ctx, err error) error {
 func (api *application) badResquestResponse(c *fiber.Ctx, err error) error {
 	api.logger.Warnw("bad request", "method", c.Method(), "path", c.Path(), "err", err.Error())
 
-	return writeJSONError(c, http.StatusBadRequest, "bad request")
+	return writeJSONError(c, http.StatusBadRequest, err.Error())
 }
 
 func (api *application) forbiddenResponse(c *fiber.Ctx, err error) error {
