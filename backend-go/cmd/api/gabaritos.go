@@ -1,45 +1,77 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"math"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jung-kurt/gofpdf"
 )
 
+func (api *application) GenerateGabarito(c *fiber.Ctx) error {
+	var payload GabaritoPayload
+
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+	defer cancel()
+
+	resultChan := make(chan []byte, 1)
+	errorChan := make(chan error, 1)
+
+	if err := c.BodyParser(&payload); err != nil {
+		return api.badResquestResponse(c, err)
+	}
+
+	go func() {
+		pdfBytes, err := GeneratePDF(payload)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+
+		resultChan <- pdfBytes
+	}()
+
+	select {
+	case pdfBytes := <-resultChan:
+		c.Set("Content-Type", "application/pdf")
+		return c.Send(pdfBytes)
+	case err := <-errorChan:
+		return api.internalError(c, err)
+	case <-ctx.Done():
+		return api.timeoutResponse(c)
+	}
+}
+
 type GabaritoPayload struct {
 	Test         string `json:"test"`
 	Grade        string `json:"grade"`
 	Alternatives int    `json:"alternatives"`
-	Questions    int    `json:"questions"` // Total de questões lineares
+	Questions    int    `json:"questions"`
 	TeacherName  string `json:"teacher_name"`
 }
 
-func GeneratePDF(payload GabaritoPayload) (string, error) {
-	// Cria o PDF em modo paisagem (A4) e define as margens
+func GeneratePDF(payload GabaritoPayload) ([]byte, error) {
 	pdf := gofpdf.New("L", "mm", "A4", "")
 	pdf.SetMargins(5, 5, 5)
 
-	// Adiciona suporte a fontes UTF-8
 	pdf.AddUTF8Font("DejaVu", "", "DejaVuSans.ttf")
 
-	// Validação de alternativas
 	if payload.Alternatives < 4 || payload.Alternatives > 5 {
 		payload.Alternatives = 4
 	}
 
-	// Calcula o total de questões (limita a 50)
 	totalQuestions := payload.Questions
 	if totalQuestions == 0 {
-		return "", fmt.Errorf("nenhuma questão fornecida")
+		return nil, fmt.Errorf("nenhuma questão fornecida")
 	}
 	if totalQuestions > 100 {
 		totalQuestions = 100
 	}
 
-	// Parâmetros gerais
 	pdf.AddPage()
 	gabaritoWidth := 138.5
 	pageBottom := 200.0
@@ -56,7 +88,6 @@ func GeneratePDF(payload GabaritoPayload) (string, error) {
 
 	colWidth := (gabaritoWidth - colMargin*float64(requiredColumns-1)) / float64(requiredColumns)
 
-	// Para cada um dos dois gabaritos (espelhados na página)
 	for g := range 2 {
 		gabaritoX := 15.0 + float64(g)*gabaritoWidth
 		if g == 0 {
@@ -83,7 +114,7 @@ func GeneratePDF(payload GabaritoPayload) (string, error) {
 		for i := range totalQuestions {
 			col := i / questionsPerColumn
 			row := i % questionsPerColumn
-			currentX := gabaritoX + float64(col)*(colWidth+colMargin)
+			currentX := gabaritoX + float64(col)*(colWidth+colMargin) - 2
 			currentY := questionStartY + float64(row)*questionHeight
 
 			// Imprime número da questão e alternativas
@@ -104,7 +135,6 @@ func GeneratePDF(payload GabaritoPayload) (string, error) {
 		}
 	}
 
-	// Linha divisória vertical entre os dois gabaritos
 	pdf.SetDrawColor(0, 0, 0)
 	pdf.Line(10+gabaritoWidth, headerY, 10+gabaritoWidth, pageBottom)
 
@@ -118,22 +148,10 @@ func GeneratePDF(payload GabaritoPayload) (string, error) {
 	pdf.Rect(5, 200, 5, 5, "D")
 	pdf.Rect(287, 200, 5, 5, "D")
 
-	filename := fmt.Sprintf("gabarito_otimizado_%s.pdf", payload.Test)
-	if err := pdf.OutputFileAndClose(filename); err != nil {
-		return "", fmt.Errorf("falha ao gerar PDF: %v", err)
-	}
-	return filename, nil
-}
-
-func (api *application) GenerateGabarito(c *fiber.Ctx) error {
-	var payload GabaritoPayload
-	if err := c.BodyParser(&payload); err != nil {
-		return api.badResquestResponse(c, err)
-	}
-
-	pdfPath, err := GeneratePDF(payload)
+	var buf bytes.Buffer
+	err := pdf.Output(&buf)
 	if err != nil {
-		return api.internalError(c, err)
+		return nil, fmt.Errorf("falha ao gerar PDF: %v", err)
 	}
-	return c.SendFile(pdfPath)
+	return buf.Bytes(), nil
 }

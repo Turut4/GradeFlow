@@ -39,3 +39,9 @@ func (api *application) unauthorizedResponse(c *fiber.Ctx, err error) error {
 
 	return writeJSONError(c, http.StatusUnauthorized, "unauthorized")
 }
+
+func (api *application) timeoutResponse(c *fiber.Ctx) error {
+	api.logger.Warnw("timeout", "method", c.Method(), "path", c.Path())
+
+	return writeJSONError(c, http.StatusRequestTimeout, "timeout")
+}
