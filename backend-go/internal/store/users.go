@@ -3,24 +3,19 @@ package store
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type User struct {
-	ID        int64          `gorm:"primaryKey;autoIncrement" json:"id"`
-	Username  string         `gorm:"size:100;unique;not null" json:"username"`
-	Email     string         `gorm:"size:100;uniqueIndex;not null" json:"email"`
-	Password  string         `gorm:"size:72;not null" json:"-"`
-	SchoolID  int64          `json:"school_id"`
-	School    School         `json:"school" gorm:"foreignKey:SchoolID"`
-	RoleID    int64          `json:"role_id"`
-	Role      Role           `gorm:"foreignKey:RoleID" json:"role"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
+	gorm.Model
+	Username string  `gorm:"size:100;unique;not null" json:"username"`
+	Email    string  `gorm:"size:100;uniqueIndex;not null" json:"email"`
+	Password string  `gorm:"size:72;not null" json:"-"`
+	Grade    []Grade `gorm:"many2many:user_grades;" json:"grades"`
+	RoleID   int64   `json:"role_id"`
+	Role     Role    `gorm:"foreignKey:RoleID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"role"`
 }
 
 type UserStore struct {
@@ -61,8 +56,7 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	}
 	user.Password = hashedPassword
 
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
+
 
 	var role Role
 	if err := s.db.WithContext(ctx).Where("name = ?", user.Role.Name).First(&role).Error; err != nil {

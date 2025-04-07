@@ -15,7 +15,7 @@ func main() {
 	cfg := config{
 		addr: env.GetString("ADDR", ":8080"),
 		db: dbConfig{
-			addr: env.GetString("DB_ADDR", "postgres://user:password@localhost:5433/gradeflow?sslmode=disable"),
+			addr: env.GetString("DB_ADDR", "postgres://user:password@localhost:5432/gradeflow?sslmode=disable"),
 		},
 		auth: authConfig{
 			basic: basicConfig{

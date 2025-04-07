@@ -60,8 +60,8 @@ func (api *application) mount() *fiber.App {
 			router.Post("/users", api.registerUserHandler)
 			router.Post("/token", api.createTokenHandler)
 		})
-		router.Post("/generate-gabarito", api.GenerateGabarito)
-		router.Post("/ocr/process-gabarito", api.processGabarito)
+		router.Post("/generate-gabarito", api.generateAnswerSheet)
+		router.Post("/ocr/process-gabarito", api.processAnswersSheet)
 	})
 
 	return app
