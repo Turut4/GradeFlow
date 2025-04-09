@@ -56,12 +56,21 @@ func (api *application) mount() *fiber.App {
 			router.Use(api.authTokenMiddleware)
 			router.Get("/:userID", api.GetUserHandler)
 		})
+
 		router.Route("/authentication", func(router fiber.Router) {
 			router.Post("/users", api.registerUserHandler)
 			router.Post("/token", api.createTokenHandler)
 		})
-		router.Post("/generate-gabarito", api.generateAnswerSheet)
-		router.Post("/ocr/process-gabarito", api.processAnswersSheet)
+
+		router.Route("/exams", func(router fiber.Router) {
+			router.Use(api.authTokenMiddleware)
+
+			router.Post("/", api.createExamHandler)
+		})
+
+		router.Route("/answer-sheet", func(router fiber.Router) {
+			router.Post("/process-gabarito", api.processAnswersSheet)
+		})
 	})
 
 	return app

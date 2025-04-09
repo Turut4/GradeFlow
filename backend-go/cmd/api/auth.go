@@ -19,11 +19,11 @@ func (api *application) registerUserHandler(c *fiber.Ctx) error {
 	var payload RegisterUserPayload
 
 	if err := c.BodyParser(&payload); err != nil {
-		return api.badResquestResponse(c, err)
+		return api.badRequestResponse(c, err)
 	}
 
 	if err := Validate.Struct(payload); err != nil {
-		return api.badResquestResponse(c, err)
+		return api.badRequestResponse(c, err)
 	}
 
 	user := &store.User{
@@ -50,16 +50,16 @@ type CreateUserTokenPayload struct {
 func (api *application) createTokenHandler(c *fiber.Ctx) error {
 	var payload CreateUserTokenPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return api.badResquestResponse(c, err)
+		return api.badRequestResponse(c, err)
 	}
 
 	if err := Validate.Struct(payload); err != nil {
-		return api.badResquestResponse(c, err)
+		return api.badRequestResponse(c, err)
 	}
 
 	user, err := api.store.Users.GetByEmail(c.Context(), payload.Email)
 	if err != nil {
-		return api.badResquestResponse(c, err)
+		return api.badRequestResponse(c, err)
 	}
 
 	claims := jwt.MapClaims{

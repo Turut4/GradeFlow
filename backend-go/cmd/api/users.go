@@ -10,8 +10,9 @@ import (
 
 func (api *application) GetUserHandler(c *fiber.Ctx) error {
 	userID, err := strconv.ParseInt(c.Params("userID"), 10, 64)
+
 	if err != nil {
-		return api.badResquestResponse(c, err)
+		return api.badRequestResponse(c, err)
 	}
 
 	user, err := api.store.Users.GetByID(c.Context(), userID)

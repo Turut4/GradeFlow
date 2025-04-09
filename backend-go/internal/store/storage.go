@@ -22,11 +22,16 @@ type Storage struct {
 	Roles interface {
 		GetByName(ctx context.Context, role string) (*Role, error)
 	}
+	Exams interface {
+		Create(ctx context.Context, exam *Exam) error
+		GetByID(ctx context.Context, examID uint) (*Exam, error)
+	}
 }
 
 func NewStorage(db *gorm.DB) Storage {
 	return Storage{
 		Users: &UserStore{db},
 		Roles: &RoleStore{db},
+		Exams: &ExamStore{db},
 	}
 }

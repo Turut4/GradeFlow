@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
-	"time"
 
 	"github.com/Turut4/GradeFlow/internal/store"
 	"github.com/gofiber/fiber/v2"
@@ -60,8 +60,17 @@ func (app *application) checkRolePrecedence(ctx context.Context, user *store.Use
 	return user.Role.Level >= role.Level, nil
 }
 
-type TimeoutConfig struct {
-	Timeout      time.Duration
-	ErrorMessage string
-}
+func parseUserFromCtx(c *fiber.Ctx) *store.User {
+	userVal := c.Locals(userCtx)
+	log.Print(userVal)
+	if userVal == nil {
+		return nil
+	}
 
+	user, ok := userVal.(*store.User)
+	if !ok {
+		return nil
+	}
+
+	return user
+}
