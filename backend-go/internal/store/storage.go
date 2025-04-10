@@ -25,6 +25,7 @@ type Storage struct {
 	Exams interface {
 		Create(ctx context.Context, exam *Exam) error
 		GetByID(ctx context.Context, examID uint) (*Exam, error)
+		GetExamPDF(ctx context.Context, examID uint) ([]byte, error)
 	}
 }
 

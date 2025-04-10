@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 
 	"gorm.io/gorm"
@@ -58,6 +60,31 @@ func (s *ExamStore) GetByID(ctx context.Context, examID uint) (*Exam, error) {
 	return exam, nil
 }
 
+func (s *ExamStore) GetExamPDF(ctx context.Context, examID uint) ([]byte, error) {
+	var exam Exam
+	if err := s.db.WithContext(ctx).
+		Select("answer_sheet_pdf").
+		Where("id = ?", examID).
+		First(&exam).Error; err != nil {
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("exam not found: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get exam PDF: %w", err)
+	}
+
+	if len(exam.AnswerSheetPDF) == 0 {
+		return nil, errors.New("exam PDF is empty")
+	}
+
+	pdfBytes, err := decompressPDF(exam.AnswerSheetPDF)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decompress PDF: %w", err)
+	}
+
+	return pdfBytes, nil
+}
+
 func compressPDF(pdfBytes []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
@@ -74,18 +101,12 @@ func compressPDF(pdfBytes []byte) ([]byte, error) {
 }
 
 func decompressPDF(compressedPDF []byte) ([]byte, error) {
-	var buf bytes.Reader
-	gz, err := gzip.NewReader(&buf)
+	buf := bytes.NewReader(compressedPDF)
+	gz, err := gzip.NewReader(buf)
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = gz.Read(compressedPDF)
-	if err != nil {
-		return nil, err
-	}
-
 	defer gz.Close()
-	return io.ReadAll(&buf)
 
+	return io.ReadAll(gz)
 }

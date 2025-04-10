@@ -12,7 +12,7 @@ type User struct {
 	gorm.Model
 	Username string  `gorm:"size:100;unique;not null" json:"username"`
 	Email    string  `gorm:"size:100;uniqueIndex;not null" json:"email"`
-	Password string  `gorm:"size:72;not null" json:"-"`
+	Password string  `gorm:"size:255;not null" json:"-"`
 	Grade    []Grade `gorm:"many2many:user_grades;" json:"grades"`
 	RoleID   int64   `json:"role_id"`
 	Role     Role    `gorm:"foreignKey:RoleID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"role"`
@@ -55,8 +55,6 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 		return err
 	}
 	user.Password = hashedPassword
-
-
 
 	var role Role
 	if err := s.db.WithContext(ctx).Where("name = ?", user.Role.Name).First(&role).Error; err != nil {

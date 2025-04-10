@@ -64,8 +64,8 @@ func (api *application) mount() *fiber.App {
 
 		router.Route("/exams", func(router fiber.Router) {
 			router.Use(api.authTokenMiddleware)
-
 			router.Post("/", api.createExamHandler)
+			router.Get("/:examID", api.GetExamPDFHandler)
 		})
 
 		router.Route("/answer-sheet", func(router fiber.Router) {
