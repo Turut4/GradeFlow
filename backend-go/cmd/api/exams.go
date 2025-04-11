@@ -63,6 +63,47 @@ func (api *application) createExamHandler(c *fiber.Ctx) error {
 	return api.jsonResponse(c, fiber.StatusCreated, exam)
 }
 
+func (api *application) GetExamHandler(c *fiber.Ctx) error {
+	examID, err := c.ParamsInt("examID")
+	if err != nil {
+		return api.badRequestResponse(c, err)
+	}
+
+	exam, err := api.store.Exams.GetByID(c.Context(), uint(examID))
+	if err != nil {
+		switch err {
+		case store.ErrNotFound:
+			return api.notFoundResponse(c, err)
+		default:
+			api.internalError(c, err)
+		}
+	}
+
+	return api.jsonResponse(c, fiber.StatusOK, exam)
+}
+
+func (api *application) GetAnswerSheetHandler(c *fiber.Ctx) error {
+	examID, err := c.ParamsInt("examID")
+	if err != nil {
+		return api.badRequestResponse(c, err)
+	}
+
+	pdfBytes, err := api.store.Exams.GetAnswerSheet(c.Context(), uint(examID))
+	if err != nil {
+		switch err {
+		case store.ErrNotFound:
+			return api.notFoundResponse(c, err)
+		default:
+			return api.internalError(c, err)
+		}
+	}
+
+	c.Set("Content-Type", "application/pdf")
+	c.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"prova_%d.pdf\"", examID))
+
+	return c.Send(pdfBytes)
+}
+
 func validateAnswerSheet(exam *CreateExamPayload) error {
 	validAnswers := map[string]bool{
 		"A": true,
@@ -90,26 +131,4 @@ func validateAnswerSheet(exam *CreateExamPayload) error {
 	}
 
 	return nil
-}
-
-func (api *application) GetExamPDFHandler(c *fiber.Ctx) error {
-	examID, err := c.ParamsInt("examID")
-	if err != nil {
-		return api.badRequestResponse(c, err)
-	}
-
-	pdfBytes, err := api.store.Exams.GetExamPDF(c.Context(), uint(examID))
-	if err != nil {
-		switch err {
-		case store.ErrNotFound:
-			return api.notFoundResponse(c, err)
-		default:
-			return api.internalError(c, err)
-		}
-	}
-
-	c.Set("Content-Type", "application/pdf")
-	c.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"prova_%d.pdf\"", examID))
-
-	return c.Send(pdfBytes)
 }

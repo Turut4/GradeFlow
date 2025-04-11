@@ -48,7 +48,7 @@ func (s *ExamStore) Create(ctx context.Context, exam *Exam) error {
 
 func (s *ExamStore) GetByID(ctx context.Context, examID uint) (*Exam, error) {
 	exam := new(Exam)
-	if err := s.db.WithContext(ctx).Omit("AnswerSheetPDF").First(exam, examID).Error; err != nil {
+	if err := s.db.WithContext(ctx).Preload("User").Omit("AnswerSheetPDF").First(exam, examID).Error; err != nil {
 		switch err {
 		case gorm.ErrRecordNotFound:
 			return nil, ErrNotFound
@@ -60,7 +60,7 @@ func (s *ExamStore) GetByID(ctx context.Context, examID uint) (*Exam, error) {
 	return exam, nil
 }
 
-func (s *ExamStore) GetExamPDF(ctx context.Context, examID uint) ([]byte, error) {
+func (s *ExamStore) GetAnswerSheet(ctx context.Context, examID uint) ([]byte, error) {
 	var exam Exam
 	if err := s.db.WithContext(ctx).
 		Select("answer_sheet_pdf").
@@ -68,8 +68,9 @@ func (s *ExamStore) GetExamPDF(ctx context.Context, examID uint) ([]byte, error)
 		First(&exam).Error; err != nil {
 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("exam not found: %w", ErrNotFound)
+			return nil, ErrNotFound
 		}
+
 		return nil, fmt.Errorf("failed to get exam PDF: %w", err)
 	}
 
