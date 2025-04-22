@@ -3,47 +3,56 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"net/http"
 	"strings"
 
 	"github.com/Turut4/GradeFlow/internal/store"
-	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const userCtx = "user"
+type userKey string
 
-func (api *application) authTokenMiddleware(c *fiber.Ctx) error {
-	authHeader := c.Get("Authorization")
-	if authHeader == "" {
-		return api.unauthorizedResponse(c, fmt.Errorf("authorization header is missing"))
-	}
+const userCtx userKey = "user"
 
-	parts := strings.Split(authHeader, " ")
+func (app *application) authTokenMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			app.unauthorizedErrorResponse(w, r, fmt.Errorf("authorization header is missing"))
+			return
+		}
 
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		return api.unauthorizedResponse(c, fmt.Errorf("authorization header is malformed %s ", authHeader))
-	}
+		parts := strings.Split(authHeader, " ")
 
-	token, err := api.authenticator.ValidateToken(parts[1])
-	if err != nil {
-		return api.unauthorizedResponse(c, err)
-	}
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			app.unauthorizedErrorResponse(w, r, fmt.Errorf("authorization header is malformed %s ", authHeader))
+			return
+		}
 
-	claims, _ := token.Claims.(jwt.MapClaims)
-	sub, ok := claims["sub"].(float64)
-	if !ok {
-		return api.unauthorizedResponse(c, fmt.Errorf("invalid 'sub' claim type: expected float64, got %T", claims["sub"]))
-	}
+		token, err := app.authenticator.ValidateToken(parts[1])
+		if err != nil {
+			app.unauthorizedErrorResponse(w, r, err)
+			return
+		}
 
-	userID := int64(sub)
-	user, err := api.store.Users.GetByID(c.UserContext(), userID)
-	if err != nil {
-		return api.unauthorizedResponse(c, err)
-	}
+		claims, _ := token.Claims.(jwt.MapClaims)
+		sub, ok := claims["sub"].(float64)
+		if !ok {
+			app.unauthorizedErrorResponse(w, r, fmt.Errorf("invalid 'sub' claim type: expected float64, got %T", claims["sub"]))
+			return
+		}
 
-	c.Locals(userCtx, user)
-	return c.Next()
+		userID := int64(sub)
+		ctx := r.Context()
+		user, err := app.store.Users.GetByID(ctx, userID)
+		if err != nil {
+			app.unauthorizedErrorResponse(w, r, err)
+			return
+		}
+		ctx = context.WithValue(ctx, userCtx, user)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func (app *application) checkRolePrecedence(ctx context.Context, user *store.User, roleName string) (bool, error) {
@@ -60,14 +69,9 @@ func (app *application) checkRolePrecedence(ctx context.Context, user *store.Use
 	return user.Role.Level >= role.Level, nil
 }
 
-func parseUserFromCtx(c *fiber.Ctx) *store.User {
-	userVal := c.Locals(userCtx)
-	log.Print(userVal)
-	if userVal == nil {
-		return nil
-	}
+func parseUserFromCtx(r *http.Request) *store.User {
+	user, ok := r.Context().Value(userCtx).(*store.User)
 
-	user, ok := userVal.(*store.User)
 	if !ok {
 		return nil
 	}

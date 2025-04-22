@@ -2,11 +2,13 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/Turut4/GradeFlow/internal/auth"
 	"github.com/Turut4/GradeFlow/internal/store"
-	"github.com/gofiber/fiber/v2"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 )
 
@@ -25,6 +27,7 @@ type config struct {
 	addr string
 	db   dbConfig
 	auth authConfig
+	env  string
 	ocr  ocrConfig
 }
 
@@ -48,40 +51,52 @@ type dbConfig struct {
 	addr string
 }
 
-func (api *application) mount() *fiber.App {
-	app := fiber.New()
+func (app *application) mount() http.Handler {
+	r := chi.NewRouter()
 
-	app.Route("/api/v1", func(router fiber.Router) {
-		router.Route("/users", func(router fiber.Router) {
-			router.Use(api.authTokenMiddleware)
-			router.Get("/:userID", api.GetUserHandler)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/users", func(r chi.Router) {
+			r.Use(app.authTokenMiddleware)
+			r.Get("/:userID", app.GetUserHandler)
 		})
 
-		router.Route("/authentication", func(router fiber.Router) {
-			router.Post("/users", api.registerUserHandler)
-			router.Post("/token", api.createTokenHandler)
+		r.Route("/authentication", func(r chi.Router) {
+			r.Post("/users", app.registerUserHandler)
+			r.Post("/token", app.createTokenHandler)
 		})
 
-		router.Route("/exams", func(router fiber.Router) {
-			router.Use(api.authTokenMiddleware)
-			router.Post("/", api.createExamHandler)
-			router.Get("/:examID", api.GetExamHandler)
-			router.Get("/:examID/answer-sheet", api.GetAnswerSheetHandler)
+		r.Route("/exams", func(r chi.Router) {
+			r.Use(app.authTokenMiddleware)
+			r.Post("/", app.createExamHandler)
+			r.Get("/:examID", app.GetExamHandler)
+			r.Get("/:examID/answer-sheet", app.GetAnswerSheetHandler)
 		})
 
-		router.Route("/answer-sheet", func(router fiber.Router) {
-			router.Post("/process-gabarito", api.processAnswersSheet)
+		r.Route("/answer-sheet", func(r chi.Router) {
+			r.Post("/process-gabarito", app.processAnswersSheet)
 		})
 	})
 
-	return app
+	return r
 }
 
-func (api *application) run() {
-	app := api.mount()
+func (app *application) run() {
+	mux := app.mount()
+	srv := &http.Server{
+		Addr:         app.cfg.addr,
+		Handler:      mux,
+		WriteTimeout: time.Second * 30,
+		ReadTimeout:  time.Second * 10,
+		IdleTimeout:  time.Minute,
+	}
 
-	api.logger.Infof("Server running %s\n", api.cfg.addr)
-	if err := app.Listen(api.cfg.addr); err != nil {
+	app.logger.Infof("Server running %s\n", app.cfg.addr)
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Error initializing server: %v", err)
 	}
 }

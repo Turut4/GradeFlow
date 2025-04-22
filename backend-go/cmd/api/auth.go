@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/Turut4/GradeFlow/internal/store"
-	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -15,15 +14,17 @@ type RegisterUserPayload struct {
 	Email    string `json:"email" validate:"required,email"`
 }
 
-func (api *application) registerUserHandler(c *fiber.Ctx) error {
+func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
 	var payload RegisterUserPayload
 
-	if err := c.BodyParser(&payload); err != nil {
-		return api.badRequestResponse(c, err)
+	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
 	if err := Validate.Struct(payload); err != nil {
-		return api.badRequestResponse(c, err)
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
 	user := &store.User{
@@ -35,46 +36,76 @@ func (api *application) registerUserHandler(c *fiber.Ctx) error {
 		},
 	}
 
-	if err := api.store.Users.Create(c.Context(), user); err != nil {
-		return api.internalError(c, err)
+	if err := app.store.Users.Create(r.Context(), user); err != nil {
+		app.internalServerError(w, r, err)
+		return
 	}
 
-	return api.jsonResponse(c, http.StatusCreated, nil)
+	if err := app.jsonResponse(w, http.StatusCreated, nil); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
 }
 
 type CreateUserTokenPayload struct {
-	Email    string `json:"email" validate:"required,max=255"`
+	Email    string `json:"email" validate:"required,max=255,email"`
 	Password string `json:"password" validate:"required,min=3,max=72"`
 }
 
-func (api *application) createTokenHandler(c *fiber.Ctx) error {
+func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Request) {
 	var payload CreateUserTokenPayload
-	if err := c.BodyParser(&payload); err != nil {
-		return api.badRequestResponse(c, err)
+	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
 	if err := Validate.Struct(payload); err != nil {
-		return api.badRequestResponse(c, err)
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
-	user, err := api.store.Users.GetByEmail(c.Context(), payload.Email)
+	user, err := app.store.Users.GetByEmail(r.Context(), payload.Email)
+
 	if err != nil {
-		return api.badRequestResponse(c, err)
+		switch err {
+		case store.ErrNotFound:
+			app.invalidCredentialsResponse(w, r)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
+
+	if err := user.ComparePassword(payload.Password); err != nil {
+		app.forbiddenErrorResponse(w, r)
+		return
 	}
 
 	claims := jwt.MapClaims{
 		"sub": user.ID,
-		"exp": time.Now().Add(api.cfg.auth.token.exp).Unix(),
+		"exp": time.Now().Add(app.cfg.auth.token.exp).Unix(),
 		"iat": time.Now().Unix(),
 		"nbf": time.Now().Unix(),
-		"iss": api.cfg.auth.token.iss,
-		"aud": api.cfg.auth.token.iss,
+		"iss": app.cfg.auth.token.iss,
+		"aud": app.cfg.auth.token.iss,
 	}
 
-	token, err := api.authenticator.GenerateToken(claims)
+	token, err := app.authenticator.GenerateToken(claims)
 	if err != nil {
-		return api.internalError(c, err)
+		app.internalServerError(w, r, err)
+		return
 	}
 
-	return api.jsonResponse(c, http.StatusCreated, token)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "jwt",
+		Value:    token,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
+		Expires:  time.Now().Add(app.cfg.auth.token.exp),
+	})
+
+	if err := app.jsonResponse(w, http.StatusOK, "login realizado com sucesso"); err != nil {
+		app.internalServerError(w, r, err)
+	}
 }

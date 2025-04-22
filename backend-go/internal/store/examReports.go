@@ -14,6 +14,6 @@ type ExamReport struct {
 	Feedback     string  `gorm:"type:text" json:"feedback"`
 }
 
-type ExamReportStore struct {
-	db *gorm.DB
-}
+// type ExamReportStore struct {
+// 	db *gorm.DB
+// }

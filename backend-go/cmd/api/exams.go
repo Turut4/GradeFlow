@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"strconv"
 
 	"github.com/Turut4/GradeFlow/internal/store"
 	"github.com/Turut4/GradeFlow/internal/utils"
-	"github.com/gofiber/fiber/v2"
+	"github.com/go-chi/chi/v5"
 )
 
 type CreateExamPayload struct {
@@ -17,20 +19,23 @@ type CreateExamPayload struct {
 	AnswerSheet []store.AnswerItem `gorm:"json" json:"answer_sheet"`
 }
 
-func (api *application) createExamHandler(c *fiber.Ctx) error {
+func (app *application) createExamHandler(w http.ResponseWriter, r *http.Request) {
 	var payload CreateExamPayload
-	if err := c.BodyParser(&payload); err != nil {
-		return api.badRequestResponse(c, err)
+	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
-	user := parseUserFromCtx(c)
+	user := parseUserFromCtx(r)
 
 	if err := Validate.Struct(&payload); err != nil {
-		return api.badRequestResponse(c, err)
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
 	if err := validateAnswerSheet(&payload); err != nil {
-		return api.badRequestResponse(c, err)
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
 	exam := &store.Exam{
@@ -51,57 +56,67 @@ func (api *application) createExamHandler(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		return api.internalError(c, err)
+		app.internalServerError(w, r, err)
+		return
 	}
 
 	exam.AnswerSheetPDF = pdfBytes
 
-	if err := api.store.Exams.Create(c.UserContext(), exam); err != nil {
-		return api.internalError(c, err)
+	if err := app.store.Exams.Create(r.Context(), exam); err != nil {
+		app.internalServerError(w, r, err)
+		return
 	}
 
-	return api.jsonResponse(c, fiber.StatusCreated, exam)
+	if err := app.jsonResponse(w, http.StatusCreated, exam); err != nil {
+		app.internalServerError(w, r, err)
+	}
 }
 
-func (api *application) GetExamHandler(c *fiber.Ctx) error {
-	examID, err := c.ParamsInt("examID")
+func (app *application) GetExamHandler(w http.ResponseWriter, r *http.Request) {
+	examID, err := strconv.ParseInt(chi.URLParam(r, "examID"), 10, 64)
 	if err != nil {
-		return api.badRequestResponse(c, err)
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
-	exam, err := api.store.Exams.GetByID(c.Context(), uint(examID))
+	exam, err := app.store.Exams.GetByID(r.Context(), uint(examID))
 	if err != nil {
 		switch err {
 		case store.ErrNotFound:
-			return api.notFoundResponse(c, err)
+			app.notFoundResponse(w, r, err)
 		default:
-			api.internalError(c, err)
+			app.internalServerError(w, r, err)
 		}
+		return
 	}
 
-	return api.jsonResponse(c, fiber.StatusOK, exam)
+	if err := app.jsonResponse(w, http.StatusOK, exam); err != nil {
+		app.internalServerError(w, r, err)
+	}
 }
 
-func (api *application) GetAnswerSheetHandler(c *fiber.Ctx) error {
-	examID, err := c.ParamsInt("examID")
+func (app *application) GetAnswerSheetHandler(w http.ResponseWriter, r *http.Request) {
+	examID, err := strconv.ParseInt(chi.URLParam(r, "examID"), 10, 64)
 	if err != nil {
-		return api.badRequestResponse(c, err)
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
-	pdfBytes, err := api.store.Exams.GetAnswerSheet(c.Context(), uint(examID))
+	pdfBytes, err := app.store.Exams.GetAnswerSheet(r.Context(), uint(examID))
 	if err != nil {
 		switch err {
 		case store.ErrNotFound:
-			return api.notFoundResponse(c, err)
+			app.notFoundResponse(w, r, err)
 		default:
-			return api.internalError(c, err)
+			app.internalServerError(w, r, err)
 		}
+		return
 	}
 
-	c.Set("Content-Type", "application/pdf")
-	c.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"prova_%d.pdf\"", examID))
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"prova_%d.pdf\"", examID))
 
-	return c.Send(pdfBytes)
+	w.Write(pdfBytes)
 }
 
 func validateAnswerSheet(exam *CreateExamPayload) error {

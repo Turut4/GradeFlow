@@ -28,6 +28,7 @@ func main() {
 				iss:    "gradeflow",
 			},
 		},
+		env: env.GetString("ENVIROMENT", "development"),
 		ocr: ocrConfig{
 			addr: env.GetString("OCR_ADDR", "http://localhost:8000/process-gabarito"),
 		},
@@ -42,12 +43,12 @@ func main() {
 	logger.Info("DB connection stablished")
 	store := store.NewStorage(db)
 	auth := auth.NewJWTAuthenticator(cfg.auth.token.secret, cfg.auth.token.iss, cfg.auth.token.iss)
-	api := &application{
+	app := &application{
 		cfg:           cfg,
 		logger:        logger,
 		store:         store,
 		authenticator: auth,
 	}
 
-	api.run()
+	app.run()
 }

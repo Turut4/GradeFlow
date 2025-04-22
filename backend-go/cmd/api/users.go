@@ -5,23 +5,31 @@ import (
 	"strconv"
 
 	"github.com/Turut4/GradeFlow/internal/store"
-	"github.com/gofiber/fiber/v2"
+	"github.com/go-chi/chi/v5"
 )
 
-func (api *application) GetUserHandler(c *fiber.Ctx) error {
-	userID, err := strconv.ParseInt(c.Params("userID"), 10, 64)
+func (app *application) GetUserHandler(w http.ResponseWriter, r *http.Request) {
+	paramID := chi.URLParam(r, string(userCtx))
+	userID, err := strconv.ParseInt(paramID, 10, 64)
 
 	if err != nil {
-		return api.badRequestResponse(c, err)
+		app.badRequestResponse(w, r, err)
+		return
 	}
 
-	user, err := api.store.Users.GetByID(c.Context(), userID)
+	user, err := app.store.Users.GetByID(r.Context(), userID)
 	if err != nil {
 		switch err {
 		case store.ErrNotFound:
-			return api.notFoundResponse(c, err)
+			app.notFoundResponse(w, r, err)
+			return
+		default:
+			app.internalServerError(w, r, err)
 		}
 	}
 
-	return api.jsonResponse(c, http.StatusOK, &user)
+	if err := app.jsonResponse(w, http.StatusCreated, user); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
 }

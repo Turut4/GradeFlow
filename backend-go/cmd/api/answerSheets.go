@@ -7,8 +7,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type TestResultPayload struct {
@@ -16,54 +14,68 @@ type TestResultPayload struct {
 	Result  []bool   `json:"results"`
 }
 
-func (api *application) processAnswersSheet(c *fiber.Ctx) error {
+func (app *application) processAnswersSheet(w http.ResponseWriter, r *http.Request) {
 	body := &bytes.Buffer{}
-	writer, err := parseFile(c, body)
+	writer, err := parseFile(r, body)
 	if err != nil {
-		return api.internalError(c, err)
+		app.internalServerError(w, r, err)
+		return
 	}
 
-	resp, err := http.Post(api.cfg.ocr.addr, writer.FormDataContentType(), body)
+	resp, err := http.Post(app.cfg.ocr.addr, writer.FormDataContentType(), body)
 	if err != nil {
-		return api.internalError(c, fmt.Errorf("erro ao enviar a imagem para o microserviço: %v", err))
+		app.internalServerError(w, r, fmt.Errorf("erro ao enviar a imagem para o microserviço: %v", err))
+		return
 	}
+
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
-		return api.processError(c, resp.StatusCode, fmt.Errorf("erro ao processar a imagem"))
+		body, _ := io.ReadAll(resp.Body)
+		app.internalServerError(w, r, fmt.Errorf("erro ao processar a imagem: status %d, resposta: %s",
+			resp.StatusCode, string(body)))
+		return
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return api.internalError(c, fmt.Errorf("erro ao ler a resposta: %v", err))
+		app.internalServerError(w, r, fmt.Errorf("erro ao ler a resposta: %v", err))
+		return
 	}
 
 	var result TestResultPayload
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return api.internalError(c, fmt.Errorf("erro ao decodificar a resposta: %v", err))
+		app.internalServerError(w, r, fmt.Errorf("erro ao decodificar a resposta: %v", err))
+		return
 	}
 
-	return api.jsonResponse(c, http.StatusCreated, result)
+	if err := app.jsonResponse(w, http.StatusCreated, result); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
 }
 
-func parseFile(c *fiber.Ctx, body *bytes.Buffer) (*multipart.Writer, error) {
-	file, err := c.FormFile("file")
+func parseFile(r *http.Request, body *bytes.Buffer) (*multipart.Writer, error) {
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao fazer parse do formulário: %v", err)
+	}
+
+	file, handler, err := r.FormFile("file")
 	if err != nil {
 		return nil, fmt.Errorf("arquivo não enviado")
 	}
 
-	src, err := file.Open()
-	if err != nil {
-		return nil, fmt.Errorf("imagem não pode ser aberta")
-	}
-
-	defer src.Close()
+	defer file.Close()
 
 	writer := multipart.NewWriter(body)
 
-	part, err := writer.CreateFormFile("file", file.Filename)
+	part, err := writer.CreateFormFile("file", handler.Filename)
 	if err != nil {
 		return nil, fmt.Errorf("não foi possível criar o formulário: %v", err)
 	}
-	_, err = io.Copy(part, src)
+
+	_, err = io.Copy(part, file)
 	if err != nil {
 		return nil, fmt.Errorf("não foi possível copiar o arquivo: %v", err)
 	}

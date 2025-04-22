@@ -1,45 +1,54 @@
 package main
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 )
 
-func (api *application) processError(c *fiber.Ctx, code int, err error) error {
-	api.logger.Errorw("process error", "method", c.Method(), "path", c.Path(), "err", err.Error())
-	return writeJSONError(c, code, "the server encountered a problem")
-}
-func (api *application) internalError(c *fiber.Ctx, err error) error {
-	api.logger.Errorw("internal err", "method", c.Method(), "path", c.Path(), "err", err.Error())
+func (app *application) internalServerError(w http.ResponseWriter, r *http.Request, err error) {
+	app.logger.Errorw("internal error", "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	return writeJSONError(c, fiber.StatusInternalServerError, "the server encountered a problem")
+	writeJSONError(w, http.StatusInternalServerError, "the server encountered a problem")
 }
 
-func (api *application) notFoundResponse(c *fiber.Ctx, err error) error {
-	api.logger.Warnw("not found", "method", c.Method(), "path", c.Path(), "err", err.Error())
+func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
+	app.logger.Warnw("internal error", "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	return writeJSONError(c, fiber.StatusNotFound, "not found")
+	writeJSONError(w, http.StatusBadRequest, err.Error())
 }
 
-func (api *application) badRequestResponse(c *fiber.Ctx, err error) error {
-	api.logger.Warnw("bad request", "method", c.Method(), "path", c.Path(), "err", err.Error())
+func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request, err error) {
+	app.logger.Warnw("not found", "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	return writeJSONError(c, fiber.StatusBadRequest, err.Error())
+	writeJSONError(w, http.StatusNotFound, "not found")
 }
 
-func (api *application) forbiddenResponse(c *fiber.Ctx, err error) error {
-	api.logger.Warnw("forbidden", "method", c.Method(), "path", c.Path(), "err", err.Error())
+func (app *application) conflictResponse(w http.ResponseWriter, r *http.Request, err error) {
+	app.logger.Warnw("conflict", "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	return writeJSONError(c, fiber.StatusForbidden, "bad request")
+	writeJSONError(w, http.StatusConflict, err.Error())
 }
 
-func (api *application) unauthorizedResponse(c *fiber.Ctx, err error) error {
-	api.logger.Warnw("unauthorized", "method", c.Method(), "path", c.Path(), "err", err.Error())
+func (app *application) unauthorizedBasicErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+	app.logger.Warnw("unauthorized basic error", "method", r.Method, "path", r.URL.Path, "error", err.Error())
+	w.Header().Set("WWW-Authenticate", `Basic realm="restricted"`)
 
-	return writeJSONError(c, fiber.StatusUnauthorized, "unauthorized")
+	writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 }
 
-func (api *application) timeoutResponse(c *fiber.Ctx) error {
-	api.logger.Warnw("timeout", "method", c.Method(), "path", c.Path())
+func (app *application) unauthorizedErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+	app.logger.Warnw("unauthorized error", "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	return writeJSONError(c, fiber.StatusRequestTimeout, "timeout")
+	writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+}
+
+func (app *application) forbiddenErrorResponse(w http.ResponseWriter, r *http.Request) {
+	app.logger.Warnw("forbidden error", "method", r.Method, "path", r.URL.Path, "error", "forbbiden")
+
+	writeJSONError(w, http.StatusForbidden, "forbidden")
+}
+
+func (app *application) invalidCredentialsResponse(w http.ResponseWriter, r *http.Request) {
+	app.logger.Warnw("invalid credentials", "method", r.Method, "path", r.URL.Path, "error", "forbbiden")
+
+	writeJSONError(w, http.StatusUnauthorized, "forbidden")
 }
