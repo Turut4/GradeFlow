@@ -13,7 +13,7 @@ import (
 )
 
 type application struct {
-	cfg           config
+	config        config
 	logger        *zap.SugaredLogger
 	store         store.Storage
 	authenticator auth.Authenticator
@@ -88,14 +88,14 @@ func (app *application) mount() http.Handler {
 func (app *application) run() {
 	mux := app.mount()
 	srv := &http.Server{
-		Addr:         app.cfg.addr,
+		Addr:         app.config.addr,
 		Handler:      mux,
 		WriteTimeout: time.Second * 30,
 		ReadTimeout:  time.Second * 10,
 		IdleTimeout:  time.Minute,
 	}
 
-	app.logger.Infof("Server running %s\n", app.cfg.addr)
+	app.logger.Infof("Server running %s", app.config.addr)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Error initializing server: %v", err)
 	}

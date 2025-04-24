@@ -11,10 +11,13 @@ import (
 type RegisterUserPayload struct {
 	Username string `json:"username" validate:"min=3,max=72,required"`
 	Password string `json:"password" validate:"required,min=3,max=72"`
-	Email    string `json:"email" validate:"required,email"`
+	Email    string `json:"email"    validate:"required,email"`
 }
 
-func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) registerUserHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	var payload RegisterUserPayload
 
 	if err := readJSON(w, r, &payload); err != nil {
@@ -48,11 +51,14 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 }
 
 type CreateUserTokenPayload struct {
-	Email    string `json:"email" validate:"required,max=255,email"`
+	Email    string `json:"email"    validate:"required,max=255,email"`
 	Password string `json:"password" validate:"required,min=3,max=72"`
 }
 
-func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) createTokenHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	var payload CreateUserTokenPayload
 	if err := readJSON(w, r, &payload); err != nil {
 		app.badRequestResponse(w, r, err)
@@ -65,7 +71,6 @@ func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	user, err := app.store.Users.GetByEmail(r.Context(), payload.Email)
-
 	if err != nil {
 		switch err {
 		case store.ErrNotFound:
@@ -83,11 +88,11 @@ func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Reques
 
 	claims := jwt.MapClaims{
 		"sub": user.ID,
-		"exp": time.Now().Add(app.cfg.auth.token.exp).Unix(),
+		"exp": time.Now().Add(app.config.auth.token.exp).Unix(),
 		"iat": time.Now().Unix(),
 		"nbf": time.Now().Unix(),
-		"iss": app.cfg.auth.token.iss,
-		"aud": app.cfg.auth.token.iss,
+		"iss": app.config.auth.token.iss,
+		"aud": app.config.auth.token.iss,
 	}
 
 	token, err := app.authenticator.GenerateToken(claims)
@@ -102,7 +107,7 @@ func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Reques
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
-		Expires:  time.Now().Add(app.cfg.auth.token.exp),
+		Expires:  time.Now().Add(app.config.auth.token.exp),
 	})
 
 	if err := app.jsonResponse(w, http.StatusOK, "login realizado com sucesso"); err != nil {

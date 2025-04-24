@@ -14,7 +14,10 @@ type TestResultPayload struct {
 	Result  []bool   `json:"results"`
 }
 
-func (app *application) processAnswersSheet(w http.ResponseWriter, r *http.Request) {
+func (app *application) processAnswersSheet(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	body := &bytes.Buffer{}
 	writer, err := parseFile(r, body)
 	if err != nil {
@@ -22,9 +25,17 @@ func (app *application) processAnswersSheet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	resp, err := http.Post(app.cfg.ocr.addr, writer.FormDataContentType(), body)
+	resp, err := http.Post(
+		app.config.ocr.addr,
+		writer.FormDataContentType(),
+		body,
+	)
 	if err != nil {
-		app.internalServerError(w, r, fmt.Errorf("erro ao enviar a imagem para o microserviço: %v", err))
+		app.internalServerError(
+			w,
+			r,
+			fmt.Errorf("erro ao enviar a imagem para o microserviço: %v", err),
+		)
 		return
 	}
 
@@ -32,20 +43,32 @@ func (app *application) processAnswersSheet(w http.ResponseWriter, r *http.Reque
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		app.internalServerError(w, r, fmt.Errorf("erro ao processar a imagem: status %d, resposta: %s",
-			resp.StatusCode, string(body)))
+		app.internalServerError(
+			w,
+			r,
+			fmt.Errorf("erro ao processar a imagem: status %d, resposta: %s",
+				resp.StatusCode, string(body)),
+		)
 		return
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		app.internalServerError(w, r, fmt.Errorf("erro ao ler a resposta: %v", err))
+		app.internalServerError(
+			w,
+			r,
+			fmt.Errorf("erro ao ler a resposta: %v", err),
+		)
 		return
 	}
 
 	var result TestResultPayload
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		app.internalServerError(w, r, fmt.Errorf("erro ao decodificar a resposta: %v", err))
+		app.internalServerError(
+			w,
+			r,
+			fmt.Errorf("erro ao decodificar a resposta: %v", err),
+		)
 		return
 	}
 
