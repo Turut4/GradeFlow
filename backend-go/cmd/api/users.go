@@ -10,14 +10,13 @@ import (
 
 func (app *application) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	paramID := chi.URLParam(r, string(userCtx))
-	userID, err := strconv.ParseInt(paramID, 10, 64)
-
+	userID, err := strconv.ParseUint(paramID, 10, 64)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	user, err := app.store.Users.GetByID(r.Context(), userID)
+	user, err := app.store.Users.GetByID(r.Context(), uint(userID))
 	if err != nil {
 		switch err {
 		case store.ErrNotFound:

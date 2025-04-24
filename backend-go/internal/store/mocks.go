@@ -1,6 +1,10 @@
 package store
 
-import "context"
+import (
+	"context"
+
+	"gorm.io/gorm"
+)
 
 func NewMockStore() Storage {
 	return Storage{
@@ -12,16 +16,20 @@ type MockUserStore struct{}
 
 func (s *MockUserStore) GetByID(
 	ctx context.Context,
-	userID int64,
+	userID uint,
 ) (*User, error) {
-	return &User{}, nil
+	return &User{Model: gorm.Model{ID: uint(userID)}}, nil
 }
 
 func (s *MockUserStore) GetByEmail(
 	ctx context.Context,
 	email string,
 ) (*User, error) {
-	return &User{}, nil
+	return &User{
+		Model:    gorm.Model{ID: 1},
+		Email:    email,
+		Password: "hashed-test-password",
+	}, nil
 }
 
 func (s *MockUserStore) Create(

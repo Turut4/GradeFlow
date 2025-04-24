@@ -10,11 +10,11 @@ import (
 
 type User struct {
 	gorm.Model
-	Username string  `gorm:"size:100;unique;not null" json:"username"`
-	Email    string  `gorm:"size:100;uniqueIndex;not null" json:"email"`
-	Password string  `gorm:"size:255;not null" json:"-"`
-	Grade    []Grade `gorm:"many2many:user_grades;" json:"grades"`
-	RoleID   int64   `json:"role_id"`
+	Username string  `gorm:"size:100;unique;not null"                                         json:"username"`
+	Email    string  `gorm:"size:100;uniqueIndex;not null"                                    json:"email"`
+	Password string  `gorm:"size:255;not null"                                                json:"-"`
+	RoleID   int64   `                                                                        json:"role_id"`
+	Grade    []Grade `gorm:"many2many:user_grades;"                                           json:"grades"`
 	Role     Role    `gorm:"foreignKey:RoleID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"role"`
 }
 
@@ -23,7 +23,10 @@ type UserStore struct {
 }
 
 func HashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword(
+		[]byte(password),
+		bcrypt.DefaultCost,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -34,7 +37,7 @@ func (u *User) ComparePassword(pwd string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(pwd))
 }
 
-func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
+func (s *UserStore) GetByID(ctx context.Context, userID uint) (*User, error) {
 	var user User
 	tx := s.db.Preload("Role").First(&user, userID)
 	if tx.Error != nil {
@@ -50,7 +53,6 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
 
 func (s *UserStore) Create(ctx context.Context, user *User) error {
 	hashedPassword, err := HashPassword(user.Password)
-
 	if err != nil {
 		return err
 	}
@@ -62,10 +64,16 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	}
 	user.RoleID = role.ID
 
-	return s.db.WithContext(ctx).Select("username", "email", "password", "role_id").Create(user).Error
+	return s.db.WithContext(ctx).
+		Select("username", "email", "password", "role_id").
+		Create(user).
+		Error
 }
 
-func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
+func (s *UserStore) GetByEmail(
+	ctx context.Context,
+	email string,
+) (*User, error) {
 	var user User
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)

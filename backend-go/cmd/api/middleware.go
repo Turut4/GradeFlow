@@ -18,14 +18,22 @@ func (app *application) authTokenMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			app.unauthorizedErrorResponse(w, r, fmt.Errorf("authorization header is missing"))
+			app.unauthorizedErrorResponse(
+				w,
+				r,
+				fmt.Errorf("authorization header is missing"),
+			)
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			app.unauthorizedErrorResponse(w, r, fmt.Errorf("authorization header is malformed %s ", authHeader))
+			app.unauthorizedErrorResponse(
+				w,
+				r,
+				fmt.Errorf("authorization header is malformed %s ", authHeader),
+			)
 			return
 		}
 
@@ -38,11 +46,18 @@ func (app *application) authTokenMiddleware(next http.Handler) http.Handler {
 		claims, _ := token.Claims.(jwt.MapClaims)
 		sub, ok := claims["sub"].(float64)
 		if !ok {
-			app.unauthorizedErrorResponse(w, r, fmt.Errorf("invalid 'sub' claim type: expected float64, got %T", claims["sub"]))
+			app.unauthorizedErrorResponse(
+				w,
+				r,
+				fmt.Errorf(
+					"invalid 'sub' claim type: expected float64, got %T",
+					claims["sub"],
+				),
+			)
 			return
 		}
 
-		userID := int64(sub)
+		userID := uint(sub)
 		ctx := r.Context()
 		user, err := app.store.Users.GetByID(ctx, userID)
 		if err != nil {
@@ -55,7 +70,11 @@ func (app *application) authTokenMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (app *application) checkRolePrecedence(ctx context.Context, user *store.User, roleName string) (bool, error) {
+func (app *application) checkRolePrecedence(
+	ctx context.Context,
+	user *store.User,
+	roleName string,
+) (bool, error) {
 	role, err := app.store.Roles.GetByName(ctx, roleName)
 	if err != nil {
 		switch err {
