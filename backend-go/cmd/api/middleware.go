@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/Turut4/GradeFlow/internal/store"
 	"github.com/golang-jwt/jwt/v5"
@@ -16,30 +15,18 @@ const userCtx userKey = "user"
 
 func (app *application) authTokenMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			app.unauthorizedErrorResponse(
-				w,
-				r,
-				fmt.Errorf("authorization header is missing"),
-			)
-			return
-		}
-
-		parts := strings.Split(authHeader, " ")
-
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			app.unauthorizedErrorResponse(
-				w,
-				r,
-				fmt.Errorf("authorization header is malformed %s ", authHeader),
-			)
-			return
-		}
-
-		token, err := app.authenticator.ValidateToken(parts[1])
+		cookie, err := r.Cookie("jwt")
 		if err != nil {
-			app.unauthorizedErrorResponse(w, r, err)
+			app.unauthorizedErrorResponse(
+				w,
+				r,
+				fmt.Errorf("cookie de autenticação ausente"),
+			)
+			return
+		}
+		token, err := app.authenticator.ValidateToken(cookie.Value)
+		if err != nil {
+			app.forbiddenErrorResponse(w, r)
 			return
 		}
 
@@ -58,13 +45,12 @@ func (app *application) authTokenMiddleware(next http.Handler) http.Handler {
 		}
 
 		userID := uint(sub)
-		ctx := r.Context()
-		user, err := app.store.Users.GetByID(ctx, userID)
+		user, err := app.store.Users.GetByID(r.Context(), userID)
 		if err != nil {
 			app.unauthorizedErrorResponse(w, r, err)
 			return
 		}
-		ctx = context.WithValue(ctx, userCtx, user)
+		ctx := context.WithValue(r.Context(), userCtx, user)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
