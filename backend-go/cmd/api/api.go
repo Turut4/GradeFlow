@@ -62,7 +62,7 @@ func (app *application) mount() http.Handler {
 	r.Route("/v1", func(r chi.Router) {
 		r.Route("/users", func(r chi.Router) {
 			r.Use(app.authTokenMiddleware)
-			r.Get("/:userID", app.GetUserHandler)
+			r.Get("/{userID}", app.GetUserHandler)
 		})
 
 		r.Route("/authentication", func(r chi.Router) {
@@ -73,8 +73,8 @@ func (app *application) mount() http.Handler {
 		r.Route("/exams", func(r chi.Router) {
 			r.Use(app.authTokenMiddleware)
 			r.Post("/", app.createExamHandler)
-			r.Get("/:examID", app.GetExamHandler)
-			r.Get("/:examID/answer-sheet", app.GetAnswerSheetHandler)
+			r.Get("/{examID}", app.GetExamHandler)
+			r.Get("/{examID}/answer-sheet", app.GetAnswerSheetHandler)
 		})
 
 		r.Route("/answer-sheet", func(r chi.Router) {
