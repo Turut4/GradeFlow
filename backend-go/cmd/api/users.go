@@ -9,8 +9,8 @@ import (
 )
 
 func (app *application) GetUserHandler(w http.ResponseWriter, r *http.Request) {
-	paramID := chi.URLParam(r, string(userCtx))
-	userID, err := strconv.ParseUint(paramID, 10, 64)
+	paramID := chi.URLParam(r, "userID")
+	userID, err := strconv.ParseInt(paramID, 10, 64)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -27,7 +27,7 @@ func (app *application) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := app.jsonResponse(w, http.StatusCreated, user); err != nil {
+	if err := app.jsonResponse(w, http.StatusOK, user); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}

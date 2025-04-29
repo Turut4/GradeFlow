@@ -105,7 +105,7 @@ func (app *application) createTokenHandler(
 		Name:     "jwt",
 		Value:    token,
 		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 		Expires:  time.Now().Add(app.config.auth.token.exp),
 	})
