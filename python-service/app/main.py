@@ -1,8 +1,9 @@
 from typing import List
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from pydantic import BaseModel
-import numpy as np
+
 import cv2
+import numpy as np
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 app = FastAPI(title="GradeFlowOCR")
 
@@ -16,6 +17,7 @@ class GabaritoResult(BaseModel):
 async def process_gabarito(file: UploadFile = File(...)):
     with open("temp_image.jpg", "wb") as f:
         f.write(await file.read())
+
 
     image = cv2.imread("temp_image.jpg")
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -59,6 +61,8 @@ def process_gabarito(image_path: str) -> GabaritoResult:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     blurred = cv2.GaussianBlur(gray, (9, 9), 0)
+
+        pass
 
     circles = cv2.HoughCircles(
         blurred,

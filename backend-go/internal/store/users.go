@@ -10,12 +10,11 @@ import (
 
 type User struct {
 	gorm.Model
-	Username string  `gorm:"size:100;unique;not null"                                         json:"username"`
-	Email    string  `gorm:"size:100;uniqueIndex;not null"                                    json:"email"`
-	Password string  `gorm:"size:255;not null"                                                json:"-"`
-	RoleID   int64   `                                                                        json:"role_id"`
-	Grade    []Grade `gorm:"many2many:user_grades;"                                           json:"grades"`
-	Role     Role    `gorm:"foreignKey:RoleID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"role"`
+	Username string `gorm:"size:100;unique;not null"                                         json:"username"`
+	Email    string `gorm:"size:100;uniqueIndex;not null"                                    json:"email"`
+	Password string `gorm:"size:255;not null"                                                json:"-"`
+	RoleID   int64  `                                                                        json:"role_id"`
+	Role     Role   `gorm:"foreignKey:RoleID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"role"`
 }
 
 type UserStore struct {
@@ -27,9 +26,11 @@ func HashPassword(password string) (string, error) {
 		[]byte(password),
 		bcrypt.DefaultCost,
 	)
+
 	if err != nil {
 		return "", err
 	}
+
 	return string(hash), nil
 }
 

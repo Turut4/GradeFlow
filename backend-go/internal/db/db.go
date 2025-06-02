@@ -48,7 +48,6 @@ func migrate(db *gorm.DB) error {
 		&store.Exam{},
 		&store.ExamReport{},
 		&store.StudentExam{},
-		&store.Grade{},
 	}
 
 	for _, model := range models {

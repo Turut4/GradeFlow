@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -40,6 +41,11 @@ func (app *application) registerUserHandler(
 	}
 
 	if err := app.store.Users.Create(r.Context(), user); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	if err := app.setJWTCookie(w, r, user); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -86,31 +92,71 @@ func (app *application) createTokenHandler(
 		return
 	}
 
-	claims := jwt.MapClaims{
-		"sub": user.ID,
-		"exp": time.Now().Add(app.config.auth.token.exp).Unix(),
-		"iat": time.Now().Unix(),
-		"nbf": time.Now().Unix(),
-		"iss": app.config.auth.token.iss,
-		"aud": app.config.auth.token.iss,
-	}
-
-	token, err := app.authenticator.GenerateToken(claims)
-	if err != nil {
+	if err := app.setJWTCookie(w, r, user); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
+	if err := app.jsonResponse(w, http.StatusCreated, "token criado"); err != nil {
+		app.internalServerError(w, r, err)
+	}
+}
+
+func (app *application) setJWTCookie(w http.ResponseWriter, r *http.Request, user *store.User) error {
+	claims := jwt.MapClaims{
+		"sub":        user.ID,
+		"exp":        time.Now().Add(app.config.auth.token.exp).Unix(),
+		"iat":        time.Now().Unix(),
+		"nbf":        time.Now().Unix(),
+		"iss":        app.config.auth.token.iss,
+		"aud":        app.config.auth.token.iss,
+		"role":       user.Role.Name,
+		"name":       user.Username,
+		"ip":         r.RemoteAddr,
+		"user_agent": r.UserAgent(),
+	}
+
+	token, err := app.authenticator.GenerateToken(claims)
+
+	if err != nil {
+		return err
+	}
+
+	cookie := &http.Cookie{
 		Name:     "jwt",
 		Value:    token,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   app.config.env == "production",
+		Path:     "/",
+		Expires:  time.Now().Add(app.config.auth.token.exp),
+	}
+
+	http.SetCookie(w, cookie)
+	return nil
+}
+
+func (app *application) removeTokenHandler(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   app.config.env == "production",
 		Path:     "/",
 		Expires:  time.Now().Add(app.config.auth.token.exp),
 	})
+}
 
-	if err := app.jsonResponse(w, http.StatusOK, "login realizado com sucesso"); err != nil {
+func (app *application) getMe(w http.ResponseWriter, r *http.Request) {
+	user := parseUserFromCtx(r)
+
+	if user == nil {
+		app.unauthorizedErrorResponse(w, r, fmt.Errorf("user is not logged"))
+		return
+	}
+
+	if err := app.jsonResponse(w, http.StatusOK, user); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }
